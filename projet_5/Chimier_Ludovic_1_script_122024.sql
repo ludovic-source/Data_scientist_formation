@@ -4,10 +4,14 @@ En excluant les commandes annulées, quelles sont les commandes
  jours de retard ?
 */ 
 
+WITH latest_order AS(
+ SELECT MAX(order_purchase_timestamp) AS max_purchase_date
+ FROM orders
+ )
 SELECT * FROM orders
 	WHERE not order_status = 'canceled'
-	AND order_purchase_timestamp > DATE('now', '-3 months')
-	AND order_delivered_customer_date > DATE(order_estimated_delivery_date , '+3 days');
+	  AND order_purchase_timestamp > DATE(((SELECT max_purchase_date from latest_order)), '-3 months')
+	  AND order_delivered_customer_date > DATE(order_estimated_delivery_date , '+3 days'); 
 
 /*
 Qui sont les vendeurs ayant généré un chiffre d'affaires de plus de 100 000
@@ -16,6 +20,11 @@ Real sur des commandes livrées via Olist ?
 
 SELECT oi.seller_id, SUM(oi.price) as turnover 
 	FROM order_items oi
+	WHERE oi.order_id in (
+		SELECT o.order_id 
+			FROM orders o 
+				where o.order_status = 'delivered'
+	)			
 	GROUP BY oi.seller_id
 	HAVING SUM(oi.price) > 100000;
 
@@ -23,24 +32,31 @@ SELECT oi.seller_id, SUM(oi.price) as turnover
  Qui sont les nouveaux vendeurs (moins de 3 mois d'ancienneté) qui
  sont déjà très engagés avec la plateforme (ayant déjà vendu plus de 30
  produits) ?
+*/
 
- Hypothèses :   
- La table "sellers" ne contient pas de date d'ancienneté.
- Je suis donc parti du principe que la date d'ancienneté correspond à la date de la commande la plus ancienne.
- J'ai dû utiliser la date la plus ancienne de "shipping_limit_date" de la table order_items pour avoir la commande la plus ancienne.
- */
-
-SELECT oi.seller_id, COUNT(*) AS products_nb
-	FROM order_items oi
-	JOIN (
-	    SELECT seller_id, MIN(shipping_limit_date) AS first_order_date
-	    FROM order_items
-	    GROUP BY seller_id
-	) AS min_dates
-	ON oi.seller_id = min_dates.seller_id
-	WHERE min_dates.first_order_date > DATE('now', '-3 months')
-	GROUP BY oi.seller_id
-	HAVING products_nb > 30;
+WITH latest_order AS (
+    SELECT MAX(order_purchase_timestamp) AS max_purchase_date
+    FROM orders
+),
+min_dates AS (
+    SELECT seller_id, MIN(order_purchase_timestamp) AS first_order_date
+    FROM order_items
+    JOIN orders o ON order_items.order_id = o.order_id
+    WHERE o.order_status = 'delivered'  -- Filtrer les commandes livrées
+    GROUP BY seller_id
+)
+SELECT 
+    oi.seller_id, 
+    COUNT(oi.order_id) AS products_nb  -- Compte le nombre de produits vendus
+FROM order_items oi
+JOIN orders o
+    ON oi.order_id = o.order_id
+    AND o.order_status = 'delivered'  -- Assurer que seule les commandes livrées sont comptées
+JOIN min_dates
+    ON oi.seller_id = min_dates.seller_id
+WHERE min_dates.first_order_date > DATE((SELECT max_purchase_date FROM latest_order), '-3 months')
+GROUP BY oi.seller_id
+HAVING products_nb > 30;
 
 /*
  Question : Quels sont les 5 codes postaux, enregistrant plus de 30
