@@ -60,34 +60,31 @@ SELECT *
 
  Hypothèses :
  - Les codes postaux seront ceux des clients (customer)
- - On ne tient compte que des commandes livrées
  */        
-
-WITH recent_reviews AS (
-    -- Récupérer les reviews des 12 derniers mois
-    SELECT c.customer_zip_code_prefix, r.review_score
-	    FROM order_reviews r
-	    JOIN orders o ON r.order_id = o.order_id
-	    JOIN customers c ON o.customer_id = c.customer_id
-	    WHERE o.order_status = 'delivered'  -- Filtrer uniquement les commandes livrées
-	    AND o.order_id IN (
-	          SELECT order_id
-		          FROM orders
-		          WHERE o.order_delivered_customer_date >= DATE('now', '-12 months')
-      )
+WITH latest_order AS(
+	SELECT max(order_purchase_timestamp) AS max_purchase_date
+FROM orders
 ),
-aggregated_data AS (
-    -- Calculer le score moyen et le nombre de reviews par code postal
-    SELECT customer_zip_code_prefix, COUNT(*) AS review_count, AVG(review_score) AS avg_review_score
-	    FROM recent_reviews
-	    GROUP BY customer_zip_code_prefix
-	    HAVING COUNT(*) > 30  -- Filtrer les codes postaux ayant plus de 30 reviews
+orders_join AS(
+	SELECT c.customer_zip_code_prefix, or2.review_score
+		FROM order_reviews or2
+		INNER JOIN orders o ON o.order_id = or2.order_id
+		INNER JOIN customers c ON o.customer_id = c.customer_id
+		WHERE o.order_purchase_timestamp > DATE((SELECT max_purchase_date FROM latest_order), '-12 months')
+),
+orders_agg AS(
+	SELECT customer_zip_code_prefix, COUNT(*) AS reviews_nb, AVG(review_score) AS avg_review_score
+		FROM orders_join
+		WHERE review_score IS NOT NULL
+		GROUP BY customer_zip_code_prefix				
 )
--- Récupérer les 5 codes postaux avec le pire score moyen
-SELECT 
-    customer_zip_code_prefix,
-    review_count,
-    avg_review_score
-FROM aggregated_data
-ORDER BY avg_review_score ASC  -- Trier par score moyen croissant (pire score d'abord)
-LIMIT 5;
+SELECT *
+	FROM orders_agg
+	WHERE reviews_nb > 30
+	ORDER BY avg_review_score ASC
+	LIMIT 5;
+
+;
+
+SELECT * FROM order_reviews or2;
+SELECT * FROM orders o ;
