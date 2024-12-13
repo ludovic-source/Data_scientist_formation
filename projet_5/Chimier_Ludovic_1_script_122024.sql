@@ -34,29 +34,25 @@ SELECT oi.seller_id, SUM(oi.price) as turnover
  produits) ?
 */
 
-WITH latest_order AS (
-    SELECT MAX(order_purchase_timestamp) AS max_purchase_date
-    FROM orders
+WITH latest_order as(
+select max(order_purchase_timestamp) AS max_purchase_date
+from orders
 ),
-min_dates AS (
-    SELECT seller_id, MIN(order_purchase_timestamp) AS first_order_date
-    FROM order_items
-    JOIN orders o ON order_items.order_id = o.order_id
-    WHERE o.order_status = 'delivered'  -- Filtrer les commandes livrées
-    GROUP BY seller_id
+orders_join AS(
+	SELECT DISTINCT oi.seller_id, oi.order_id, oi.product_id, o.order_purchase_timestamp
+		FROM order_items oi
+		INNER JOIN orders o ON o.order_id = oi.order_id
+		WHERE o.order_status = 'delivered'
+),
+orders_agg AS(
+	SELECT seller_id, COUNT(product_id) AS products_nb, min(order_purchase_timestamp) AS seniority_date
+		FROM orders_join
+		GROUP BY seller_id
 )
-SELECT 
-    oi.seller_id, 
-    COUNT(oi.order_id) AS products_nb  -- Compte le nombre de produits vendus
-FROM order_items oi
-JOIN orders o
-    ON oi.order_id = o.order_id
-    AND o.order_status = 'delivered'  -- Assurer que seule les commandes livrées sont comptées
-JOIN min_dates
-    ON oi.seller_id = min_dates.seller_id
-WHERE min_dates.first_order_date > DATE((SELECT max_purchase_date FROM latest_order), '-3 months')
-GROUP BY oi.seller_id
-HAVING products_nb > 30;
+SELECT * 
+	FROM orders_agg
+	WHERE products_nb > 30
+	AND seniority_date > DATE((SELECT max_purchase_date FROM latest_order), '-3 months');
 
 /*
  Question : Quels sont les 5 codes postaux, enregistrant plus de 30
