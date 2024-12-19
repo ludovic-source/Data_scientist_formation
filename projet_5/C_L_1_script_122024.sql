@@ -102,15 +102,16 @@ SELECT *
        au modèle de clustering                                                     
 
 Les features sont :
-     - customer_id
-	 - geolocation_lat
-	 - geolocation_lng
-	 - days_since_first_order (nombre de jours depuis la date de 1ere commande livrée)
-	 - recence (total_days_since_latest_order - nombre de jours depuis la dernière commande livrée)
-	 - frequence (days_since_first_order divisé par total_orders = nombre de jours moyen entre 2 commandes livrées)
+     - customer_unique_id
+	 - latitude
+	 - longitude
+	 - nb_jours_anciennete (nombre de jours depuis la 1ere commande livrée)
+	 - recence (nombre de jours depuis la dernière commande livrée)
+	 - frequence (nombre total de commandes livrées)
 	 - montant (cumulative_amount_orders - montant cumulé des commandes livrées)
-	 - mean_review_score (score moyen)
-	 - total_reviews (nombre total de reviews)
+	 - nb_jours_entre_chaque_commande (days_since_first_order divisé par total_orders = nombre de jours moyen entre 2 commandes livrées)
+	 - score_moyen (score moyen)
+	 - nb_notes (nombre total de reviews)
 */	 
 
 WITH latest_order AS(
@@ -118,34 +119,37 @@ WITH latest_order AS(
 FROM orders
 ),
 orders_join_rfm AS(
-	SELECT o.customer_id,
-	       CAST(julianday((SELECT max_purchase_date FROM latest_order)) - julianday(MIN(o.order_purchase_timestamp)) AS INTEGER) AS days_since_first_order,
+	SELECT c.customer_unique_id,
+	       CAST(julianday((SELECT max_purchase_date FROM latest_order)) - julianday(MIN(o.order_purchase_timestamp)) AS INTEGER) AS nb_jours_anciennete,
 	       CAST(julianday((SELECT max_purchase_date FROM latest_order)) - julianday(MAX(o.order_purchase_timestamp)) AS INTEGER) AS recence,
-    	   CAST((julianday('now') - julianday(MIN(o.order_purchase_timestamp))) / COUNT(o.order_purchase_timestamp) AS REAL) AS frequence,
-    	   SUM(oi.price) AS montant
+    	   COUNT(o.order_purchase_timestamp) AS frequence,
+    	   SUM(oi.price) AS montant,
+    	   CAST((julianday((SELECT max_purchase_date FROM latest_order)) - julianday(MIN(o.order_purchase_timestamp))) 
+    	   			/ COUNT(o.order_purchase_timestamp) AS REAL) AS nb_jours_entre_chaque_commande
 	    FROM orders o
 	    INNER JOIN order_items oi ON o.order_id = oi.order_id
+	    LEFT JOIN customers c ON c.customer_id = o.customer_id
 		WHERE o.order_status = 'delivered'
-		GROUP BY o.customer_id
+		GROUP BY c.customer_unique_id
 ),
 geolocation_join AS(
-	SELECT DISTINCT c.customer_id, MAX(g.geolocation_lat) AS latitude, MAX(g.geolocation_lng) AS longitude
+	SELECT DISTINCT c.customer_unique_id, MAX(g.geolocation_lat) AS latitude, MAX(g.geolocation_lng) AS longitude
 		FROM customers c
-		INNER JOIN geoloc g ON c.customer_zip_code_prefix = g.geolocation_zip_code_prefix
-		GROUP BY c.customer_id
+		LEFT JOIN geoloc g ON c.customer_zip_code_prefix = g.geolocation_zip_code_prefix
+		GROUP BY c.customer_unique_id
 ),
 review_joins AS(
-	SELECT c.customer_id, AVG(or2.review_score) AS mean_review_score, COUNT(or2.review_score) AS total_reviews
+	SELECT c.customer_unique_id, AVG(or2.review_score) AS score_moyen, COUNT(or2.review_score) AS nb_notes
 		FROM customers c
 		INNER JOIN orders o ON o.customer_id = c.customer_id
 		INNER JOIN order_reviews or2 ON or2.order_id = o.order_id
-		GROUP BY c.customer_id 
+		GROUP BY c.customer_unique_id 
 ),
 aggregation AS(
-	SELECT orfm.customer_id, latitude, longitude, days_since_first_order, recence, frequence, montant, mean_review_score, total_reviews
+	SELECT orfm.customer_unique_id, latitude, longitude, nb_jours_anciennete, recence, frequence, montant, nb_jours_entre_chaque_commande, score_moyen, nb_notes
 		FROM orders_join_rfm orfm
-		INNER JOIN geolocation_join gj ON gj.customer_id = orfm.customer_id
-		LEFT JOIN review_joins rj ON rj.customer_id = orfm.customer_id
+		INNER JOIN geolocation_join gj ON gj.customer_unique_id = orfm.customer_unique_id
+		LEFT JOIN review_joins rj ON rj.customer_unique_id = orfm.customer_unique_id
 )
 SELECT * 
 	FROM aggregation;
