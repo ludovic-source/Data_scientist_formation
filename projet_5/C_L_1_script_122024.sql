@@ -135,14 +135,14 @@ geolocation_join AS(
 		GROUP BY c.customer_id
 ),
 review_joins AS(
-	SELECT c.customer_id, AVG(or2.review_score) AS mean_review_score, COUNT(or2.review_score) AS total_review
+	SELECT c.customer_id, AVG(or2.review_score) AS mean_review_score, COUNT(or2.review_score) AS total_reviews
 		FROM customers c
 		INNER JOIN orders o ON o.customer_id = c.customer_id
 		INNER JOIN order_reviews or2 ON or2.order_id = o.order_id
 		GROUP BY c.customer_id 
 ),
 aggregation AS(
-	SELECT orfm.customer_id, latitude, longitude, days_since_first_order, recence, frequence, montant, mean_review_score, total_review
+	SELECT orfm.customer_id, latitude, longitude, days_since_first_order, recence, frequence, montant, mean_review_score, total_reviews
 		FROM orders_join_rfm orfm
 		INNER JOIN geolocation_join gj ON gj.customer_id = orfm.customer_id
 		LEFT JOIN review_joins rj ON rj.customer_id = orfm.customer_id
