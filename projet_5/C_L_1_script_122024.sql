@@ -105,11 +105,11 @@ Les features sont :
      - customer_unique_id
 	 - latitude
 	 - longitude
-	 - nb_jours_anciennete (nombre de jours depuis la 1ere commande livrée)
-	 - recence (nombre de jours depuis la dernière commande livrée)
-	 - frequence (nombre total de commandes livrées)
-	 - montant (cumulative_amount_orders - montant cumulé des commandes livrées)
-	 - nb_jours_entre_chaque_commande (days_since_first_order divisé par total_orders = nombre de jours moyen entre 2 commandes livrées)
+	 - nb_jours_anciennete (nombre de jours depuis la 1ere commande)
+	 - recence (nombre de jours depuis la dernière commande)
+	 - frequence (nombre total de commandes)
+	 - montant (cumulative_amount_orders - montant cumulé des commandes)
+	 - nb_jours_entre_chaque_commande (days_since_first_order divisé par total_orders = nombre de jours moyen entre 2 commandes)
 	 - score_moyen (score moyen)
 	 - nb_notes (nombre total de reviews)
 */	 
@@ -122,14 +122,14 @@ orders_join_rfm AS(
 	SELECT c.customer_unique_id,
 	       CAST(julianday((SELECT max_purchase_date FROM latest_order)) - julianday(MIN(o.order_purchase_timestamp)) AS INTEGER) AS nb_jours_anciennete,
 	       CAST(julianday((SELECT max_purchase_date FROM latest_order)) - julianday(MAX(o.order_purchase_timestamp)) AS INTEGER) AS recence,
-    	   COUNT(o.order_purchase_timestamp) AS frequence,
+    	   COUNT(DISTINCT o.order_id) AS frequence,
     	   SUM(oi.price) AS montant,
     	   CAST((julianday((SELECT max_purchase_date FROM latest_order)) - julianday(MIN(o.order_purchase_timestamp))) 
     	   			/ COUNT(o.order_purchase_timestamp) AS REAL) AS nb_jours_entre_chaque_commande
-	    FROM orders o
-	    INNER JOIN order_items oi ON o.order_id = oi.order_id
-	    LEFT JOIN customers c ON c.customer_id = o.customer_id
-		WHERE o.order_status = 'delivered'
+	    FROM customers c
+	    LEFT JOIN orders o ON c.customer_id = o.customer_id
+	    LEFT JOIN order_items oi ON o.order_id = oi.order_id
+		/*WHERE o.order_status = 'delivered'*/
 		GROUP BY c.customer_unique_id
 ),
 geolocation_join AS(
