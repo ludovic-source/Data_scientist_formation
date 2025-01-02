@@ -153,3 +153,47 @@ aggregation AS(
 )
 SELECT * 
 	FROM aggregation;
+
+/*---------------------------------------------------------------------------------*/
+/*																				   */
+/*                 ETAPE 4 - SIMULER UN CONTRAT DE MAINTENANCE                     */
+/*																				   */
+/*---------------------------------------------------------------------------------*/
+
+/* Objectif : créer un fichier contenant les features par client avec toutes les   */
+/*       commandes   															   */
+
+WITH orders_filter AS (
+	SELECT * 
+		FROM orders o 
+		WHERE o.order_purchase_timestamp < '2017-12-31 23:59:59'
+),
+latest_order AS(
+	SELECT max(order_purchase_timestamp) AS max_purchase_date
+FROM orders_filter
+),
+orders_join_rfm AS(
+	SELECT c.customer_unique_id,
+	       CAST(julianday((SELECT max_purchase_date FROM latest_order)) - julianday(MAX(o.order_purchase_timestamp)) AS INTEGER) AS recence,
+    	   COUNT(DISTINCT o.order_id) AS frequence,
+    	   SUM(oi.price) AS montant
+	    FROM customers c
+	    LEFT JOIN orders_filter o ON c.customer_id = o.customer_id
+	    LEFT JOIN order_items oi ON o.order_id = oi.order_id
+		GROUP BY c.customer_unique_id
+),
+review_joins AS(
+	SELECT c.customer_unique_id, AVG(or2.review_score) AS score_moyen
+		FROM customers c
+		INNER JOIN orders_filter o ON o.customer_id = c.customer_id
+		INNER JOIN order_reviews or2 ON or2.order_id = o.order_id
+		GROUP BY c.customer_unique_id 
+),
+aggregation AS(
+	SELECT orfm.customer_unique_id, recence, frequence, montant, score_moyen
+		FROM orders_join_rfm orfm
+		LEFT JOIN review_joins rj ON rj.customer_unique_id = orfm.customer_unique_id
+)
+SELECT * 
+	FROM aggregation
+	WHERE recence IS NOT NULL;
