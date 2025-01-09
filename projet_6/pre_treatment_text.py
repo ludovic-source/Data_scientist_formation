@@ -115,7 +115,10 @@ def freq_stats_from_dataframe_without_stopwords_and_with_lemmatizer(df, sw):
         
         # Tokenisation de la description
         tokens = tokenizer.tokenize(description.lower())
-        corpora[product] += [lemmatizer.lemmatize(w) for w in tokens if not w in list(sw)]
+        # Lemmatisation des mots (tokens)
+        lemmatized_tokens = [lemmatizer.lemmatize(w) for w in tokens]
+        # Suppression des stopwords (sw)
+        corpora[product] += [w for w in lemmatized_tokens if w not in sw]
     
     # Calcul des fréquences et des statistiques
     freq = {product: nltk.FreqDist(words) for product, words in corpora.items()}
