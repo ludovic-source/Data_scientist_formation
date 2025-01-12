@@ -13,6 +13,9 @@ nltk.download('stopwords')
 nltk.download('wordnet')
 nltk.download('omw-1.4')
 
+import wordcloud
+from wordcloud import WordCloud
+
 from collections import defaultdict
 from collections import Counter
 
@@ -283,4 +286,54 @@ def get_most_common_words(freq):
         total_freq.update(product_freq)
     
     # Trier par fréquence et retourner
-    return total_freq.most_common()    
+    return total_freq.most_common()
+
+# ----------------------------------------------------------------------------------------------------------------------------
+
+def print_wordcloud(words):
+
+    """
+    Generates and displays a word cloud from a Counter of word frequencies.
+
+    This function accepts a `Counter` object where each key is a word and the 
+    associated value is the frequency of that word. It then generates a word 
+    cloud image, which is displayed using Matplotlib.
+
+    Parameters:
+        words (Counter): A `Counter` object containing words as keys and their
+                          frequencies as values. The `Counter` is typically generated
+                          by counting word occurrences in a text or dataset.
+
+    Returns:
+        None: This function does not return any value. It generates and displays 
+              the word cloud image.
+    
+    Example:
+        freq = Counter({'python': 10, 'data': 5, 'science': 3})
+        print_wordcloud(freq)
+
+    Raises:
+        ValueError: If the `words` parameter is not a `Counter` object.
+    """
+
+    # Créer un Counter pour combiner toutes les fréquences
+    combined_frequencies = Counter()
+    
+    # Ajouter chaque mot avec sa fréquence au Counter
+    for word, nb in words.items():  # Utilisez .items() pour décomposer le Counter
+        combined_frequencies[word] += nb
+    
+    # Générer le nuage de mots
+    wordcloud = WordCloud(
+        background_color='white',
+        width=800,
+        height=400,
+        colormap='viridis'
+    ).generate_from_frequencies(combined_frequencies)
+
+    # Afficher le nuage de mots
+    plt.figure(figsize=(10, 5))
+    plt.imshow(wordcloud, interpolation='bilinear')
+    plt.axis('off')
+    plt.show()
+    
