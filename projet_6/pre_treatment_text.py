@@ -23,7 +23,7 @@ import re
 
 # ----------------------------------------------------------------------------------------------------------------------------
 
-def freq_stats_from_dataframe(df):
+def freq_stats_for_description(df):
     """
     Calcule les fréquences des mots à partir d'un DataFrame contenant les articles et descriptions.
     
@@ -59,7 +59,43 @@ def freq_stats_from_dataframe(df):
 
 # ----------------------------------------------------------------------------------------------------------------------------
 
-def freq_stats_from_dataframe_without_stopwords(df, sw):
+def freq_stats_for_product_name(df):
+    """
+    Calcule les fréquences des mots du product_name à partir d'un DataFrame contenant les articles et le product_name.
+    
+    Args:
+    - df (pd.DataFrame): DataFrame avec deux colonnes ['product_name', 'product_name'].
+    
+    Returns:
+    - freq (dict): Fréquences des mots du product_name pour chaque article.
+    - stats (pd.DataFrame): DataFrame des statistiques par article.
+    """
+    corpora = defaultdict(list)
+
+    # tokenizer pour conserver uniquement les caractères alphanumériques
+    tokenizer = nltk.RegexpTokenizer(r'\w+')
+    
+    # Construction du corpus par image
+    for _, row in df.iterrows():
+        product = row['product_name']
+        product_tokens = row['product_name']
+        
+        # Tokenisation de la description
+        tokens = tokenizer.tokenize(product_tokens.lower())
+        corpora[product] += tokens
+    
+    # Calcul des fréquences et des statistiques
+    freq = {product: nltk.FreqDist(words) for product, words in corpora.items()}
+    stats = {product: {'total': len(words), 'unique': len(nltk.FreqDist(words).keys())} for product, words in corpora.items()}
+    
+    # Conversion des statistiques en DataFrame
+    stats_df = pd.DataFrame.from_dict(stats, orient='index')
+    
+    return freq, stats_df, corpora
+
+# ----------------------------------------------------------------------------------------------------------------------------
+
+def freq_stats_for_description_without_stopwords(df, sw):
     """
     Calcule les fréquences des mots à partir d'un DataFrame contenant les articles et descriptions, sans les stopwords.
     
@@ -95,7 +131,7 @@ def freq_stats_from_dataframe_without_stopwords(df, sw):
 
 # ----------------------------------------------------------------------------------------------------------------------------
 
-def freq_stats_from_dataframe_without_stopwords_and_with_lemmatizer(df, sw):
+def freq_stats_for_description_without_stopwords_and_with_lemmatizer(df, sw):
     """
     Calcule les fréquences des mots à partir d'un DataFrame contenant les articles et descriptions, sans les stopwords, et en lemmatisant les mots.
     
@@ -137,16 +173,16 @@ def freq_stats_from_dataframe_without_stopwords_and_with_lemmatizer(df, sw):
 
 # ----------------------------------------------------------------------------------------------------------------------------
 
-def process_text(df, sw):
+def process_text(df, sw, column):
     """
     Processes text data from a DataFrame, calculates word frequencies, and removes stopwords 
     while lemmatizing the words. It also filters out non-English words using a provided 
     dictionary of English words.
 
-    This function takes a DataFrame with two columns, 'product_name' and 'description', 
+    This function takes a DataFrame with two columns, 'product_name' and column, 
     and applies the following steps:
-    - Tokenizes the text from the 'description' column.
-    - Lemmatizes each word in the description.
+    - Tokenizes the text from the column.
+    - Lemmatizes each word in the column.
     - Removes stopwords (from the 'sw' set) and non-English words (not in 'english_words').
     - Calculates the word frequencies for each 'product_name' in the DataFrame.
 
@@ -155,6 +191,7 @@ def process_text(df, sw):
             - 'product_name': The name of the product.
             - 'description': The description of the product.
         sw (set): A set of stopwords to exclude from the word list.
+        column (string) : name of column for the process.
 
     Returns:
         freq (dict): A dictionary where the keys are product names and the values are 
@@ -162,7 +199,7 @@ def process_text(df, sw):
         stats (pd.DataFrame): A DataFrame with statistics for each product, 
             including total word count and unique word count.
         corpora (defaultdict): A dictionary where the keys are product names and the values 
-            are lists of words from the descriptions after lemmatization, stopword removal, 
+            are lists of words from the column after lemmatization, stopword removal, 
             and English word filtering.
     """
 
@@ -183,10 +220,10 @@ def process_text(df, sw):
     # Construction du corpus par image
     for _, row in df.iterrows():
         product = row['product_name']
-        description = row['description']
+        column_to_tokenize = row[column]
         
-        # Tokenisation de la description
-        tokens = tokenizer.tokenize(description.lower())
+        # Tokenisation de la colonne demandée
+        tokens = tokenizer.tokenize(column_to_tokenize.lower())
         # Lemmatisation des mots (tokens)
         lemmatized_tokens = [lemmatizer.lemmatize(w) for w in tokens]
         # Suppression des stopwords (sw) et des mots qui ne sont pas dans le dictionnaire anglais
@@ -200,6 +237,44 @@ def process_text(df, sw):
     stats_df = pd.DataFrame.from_dict(stats, orient='index')
     
     return freq, stats_df, corpora
+
+# ----------------------------------------------------------------------------------------------------------------------------
+
+def create_set_personal_stopwords(most_common_words, unique, numerical):
+
+    """
+    Create a custom set of stopwords based on specific criteria.
+
+    Args:
+        most_common_words (list of tuples): List of tuples (word, frequency) for the corpus.
+        unique (bool): Whether to add words with a frequency of 1 to the stopwords set.
+        numerical (bool): Whether to add words containing only digits to the stopwords set.
+
+    Returns:
+        set: A custom set of stopwords.
+    """    
+
+    # On créé notre set de stopwords avec l'ensemble de stopwords par défaut présent dans la librairie NLTK
+    sw = set()
+    sw.update(tuple(nltk.corpus.stopwords.words('english')))
+
+    if unique:
+        # Suppression des mots présents une seule fois
+        unique_tokens = []
+        for word, count in most_common_words:
+            if count == 1:
+                unique_tokens.append(word)
+        sw.update(unique_tokens)
+
+    if numerical:
+        # suppression des tokens avec des chiffres
+        numerical_tokens = []
+        for word, count in most_common_words:
+            if word.isdigit():
+                numerical_tokens.append(word)
+        sw.update(numerical_tokens)
+
+    return sw
 
 # ----------------------------------------------------------------------------------------------------------------------------
 
