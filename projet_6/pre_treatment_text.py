@@ -240,6 +240,76 @@ def process_text(df, sw, column):
 
 # ----------------------------------------------------------------------------------------------------------------------------
 
+def process_final_text(df, sw, column):
+    """
+    Processes text data from a DataFrame, calculates word frequencies, and removes stopwords 
+    while lemmatizing the words. It also filters out non-English words using a provided 
+    dictionary of English words.
+
+    This function takes a DataFrame with two columns, 'product_name' and column, 
+    and applies the following steps:
+    - Tokenizes the text from the column.
+    - Lemmatizes each word in the column.
+    - Removes stopwords (from the 'sw' set) and non-English words (not in 'english_words').
+    - Remove words with one character
+    - Calculates the word frequencies for each 'product_name' in the DataFrame.
+
+    Args:
+        df (pd.DataFrame): A DataFrame with two columns:
+            - 'product_name': The name of the product.
+            - 'description': The description of the product.
+        sw (set): A set of stopwords to exclude from the word list.
+        column (string) : name of column for the process.
+
+    Returns:
+        freq (dict): A dictionary where the keys are product names and the values are 
+            frequency distributions of the words in the descriptions.
+        stats (pd.DataFrame): A DataFrame with statistics for each product, 
+            including total word count and unique word count.
+        corpora (defaultdict): A dictionary where the keys are product names and the values 
+            are lists of words from the column after lemmatization, stopword removal, 
+            and English word filtering.
+    """
+
+    # Initialiser le lemmatizer
+    lemmatizer = WordNetLemmatizer()
+
+    # tokenizer pour conserver uniquement les caractères alphanumériques
+    tokenizer = nltk.RegexpTokenizer(r'\w+')
+
+    # Télécharger le dictionnaire de mots si vous ne l'avez pas encore fait
+    nltk.download('words')
+
+    # Liste des mots valides en anglais (dictionnaire de NLTK)
+    valid_words = set(words.words())
+    
+    corpora = defaultdict(list)
+    
+    # Construction du corpus par image
+    for _, row in df.iterrows():
+        product = row['product_name']
+        column_to_tokenize = row[column]
+        
+        # Tokenisation de la colonne demandée
+        tokens = tokenizer.tokenize(column_to_tokenize.lower())
+        # Lemmatisation des mots (tokens)
+        lemmatized_tokens = [lemmatizer.lemmatize(w) for w in tokens]
+        # Suppression des stopwords (sw) et des mots qui ne sont pas dans le dictionnaire anglais, 
+        # et des mots de moins d'une lettre
+        corpora[product] += [w for w in lemmatized_tokens if w not in sw and w in valid_words and len(w) > 1]
+    
+    # Calcul des fréquences et des statistiques
+    freq = {product: nltk.FreqDist(words) for product, words in corpora.items()}
+    stats = {product: {'total': len(words), 'unique': len(nltk.FreqDist(words).keys())} for product, words in corpora.items()}
+    
+    # Conversion des statistiques en DataFrame
+    stats_df = pd.DataFrame.from_dict(stats, orient='index')
+    
+    return freq, stats_df, corpora
+
+
+# ----------------------------------------------------------------------------------------------------------------------------
+
 def create_set_personal_stopwords(most_common_words, unique, numerical):
 
     """
