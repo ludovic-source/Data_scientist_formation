@@ -73,7 +73,8 @@ def display_factorial_planes(   X_projected,
                                 clusters=None, 
                                 alpha=1,
                                 figsize=[10,8], 
-                                marker="." ):
+                                marker=".",
+                                zoom_factor=1 ):
     """
     Affiche la projection des individus
 
@@ -139,16 +140,16 @@ def display_factorial_planes(   X_projected,
     ax.set_ylabel(f'F{y+1} {v2}')
 
     # Valeur x max et y max
-    x_max = np.abs(X_[:, x]).max() *1.1
-    y_max = np.abs(X_[:, y]).max() *1.1
+    x_max = np.abs(X_[:, x]).max() *zoom_factor
+    y_max = np.abs(X_[:, y]).max() *zoom_factor
 
     # On borne x et y 
     ax.set_xlim(left=-x_max, right=x_max)
     ax.set_ylim(bottom= -y_max, top=y_max)
 
     # Affichage des lignes horizontales et verticales
-    plt.plot([-x_max, x_max], [0, 0], color='grey', alpha=0.8)
-    plt.plot([0,0], [-y_max, y_max], color='grey', alpha=0.8)
+    plt.plot([-x_max, x_max], [0, 0], color='grey', alpha=alpha)
+    plt.plot([0,0], [-y_max, y_max], color='grey', alpha=alpha)
 
     # Affichage des labels des points
     if len(labels) : 
