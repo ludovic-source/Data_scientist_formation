@@ -255,7 +255,7 @@ def process_final_text(df, sw, column):
     - Tokenizes the text from the column.
     - Lemmatizes each word in the column.
     - Removes stopwords (from the 'sw' set) and non-English words (not in 'english_words').
-    - Remove words with one character
+    - Remove words with 2 characters
     - Calculates the word frequencies for each 'product_name' in the DataFrame.
 
     Args:
@@ -299,8 +299,8 @@ def process_final_text(df, sw, column):
         # Lemmatisation des mots (tokens)
         lemmatized_tokens = [lemmatizer.lemmatize(w) for w in tokens]
         # Suppression des stopwords (sw) et des mots qui ne sont pas dans le dictionnaire anglais, 
-        # et des mots de moins d'une lettre
-        corpora[product] += [w for w in lemmatized_tokens if w not in sw and w in valid_words and len(w) > 1]
+        # et des mots de moins de 2 lettres
+        corpora[product] += [w for w in lemmatized_tokens if w not in sw and w in valid_words and len(w) > 2]
     
     # Calcul des fréquences et des statistiques
     freq = {product: nltk.FreqDist(words) for product, words in corpora.items()}
