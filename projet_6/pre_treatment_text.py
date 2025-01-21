@@ -1,3 +1,7 @@
+"""
+    Fonctions nécessaires au pré traitement de texte
+"""    
+
 import numpy as np
 
 import pandas as pd
